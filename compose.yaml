@@ -1,0 +1,75 @@
+name: telegram-money
+x-app: &app
+  build: .
+  image: telegram-money:local
+  env_file: .env
+  environment: &environment
+    DATABASE_URL: postgresql+psycopg://telegram:${POSTGRES_PASSWORD:?Execute python3 scripts/setup.py}@db:5432/telegram_money
+    REDIS_URL: redis://redis:6379/0
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  extra_hosts: ["host.docker.internal:host-gateway"]
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: telegram_money
+      POSTGRES_USER: telegram
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Execute python3 scripts/setup.py}
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U telegram -d telegram_money"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    <<: *app
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers"]
+    ports: ["127.0.0.1:8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  worker:
+    <<: *app
+    command: ["celery", "-A", "app.tasks:celery", "worker", "--loglevel=INFO", "--concurrency=1"]
+    depends_on:
+      api:
+        condition: service_healthy
+  beat:
+    <<: *app
+    command: ["celery", "-A", "app.tasks:celery", "beat", "--loglevel=INFO", "--schedule=/app/backend/data/celerybeat-schedule"]
+    volumes: ["beat-data:/app/backend/data"]
+    depends_on:
+      api:
+        condition: service_healthy
+  bot:
+    <<: *app
+    profiles: ["telegram"]
+    command: ["python", "-m", "app.bot"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
+  beat-data:
