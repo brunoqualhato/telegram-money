@@ -1,12 +1,12 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import delete, select
-from ..auth import create_session, current_owner, digest, verify_password
+from ..auth import create_session, current_owner, digest, hash_password, verify_password
 from ..config import settings
 from ..crud import audit
 from ..db import aware, get_db, utcnow
 from ..models import AuthSession, LoginAttempt, Owner
-from ..schemas import Login, Preferences
+from ..schemas import Login, Preferences, ProfileUpdateInput
 
 router = APIRouter(tags=["auth"])
 
@@ -74,3 +74,26 @@ def preferences(data: Preferences, owner=Depends(current_owner), db=Depends(get_
     audit(db, "preferences.update", "Preferências de notificação atualizadas")
     db.commit()
     return {"ok": True}
+
+
+@router.put("/api/auth/profile")
+def update_profile(data: ProfileUpdateInput, owner=Depends(current_owner), db=Depends(get_db)):
+    if data.email:
+        new_email = data.email.lower().strip()
+        if "@" not in new_email or any(c in new_email for c in "\r\n#='\""):
+            raise HTTPException(422, "Informe um e-mail válido.")
+        existing = db.scalar(select(Owner).where(Owner.email == new_email, Owner.id != owner.id))
+        if existing:
+            raise HTTPException(409, "Este e-mail já está em uso.")
+        owner.email = new_email
+    if data.new_password:
+        if not data.current_password or not verify_password(data.current_password, owner.password_hash):
+            raise HTTPException(400, "Senha atual incorreta.")
+        if len(data.new_password) < 12:
+            raise HTTPException(422, "A nova senha deve ter no mínimo 12 caracteres.")
+        if any(c in data.new_password for c in "\r\n'"):
+            raise HTTPException(422, "A senha não aceita aspas simples ou quebras de linha.")
+        owner.password_hash = hash_password(data.new_password)
+        audit(db, "auth.password_change", "Senha alterada pelo usuário no painel")
+    db.commit()
+    return {"email": owner.email, "message": "Perfil atualizado com sucesso."}

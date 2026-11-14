@@ -3,7 +3,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from .auth import hash_password
 from .db import utcnow
-from .models import AlertRule, Asset, CorporateAction, Notification, Owner, Quote
+from .models import AlertRule, Asset, CorporateAction, Notification, Owner, ProcessingJob, Quote
 
 
 def seed_demo(db):
@@ -79,4 +79,40 @@ def seed_demo(db):
                 created_at=now - timedelta(minutes=15 * (i + 1)),
             )
         )
+    db.add(
+        ProcessingJob(
+            category="ai",
+            job_type="ai_document_summary",
+            title="Resumo IA · PETR4 - Fato Relevante (Produção 3T)",
+            target_id="1",
+            status="completed",
+            priority=10,
+            created_at=now - timedelta(minutes=45),
+            started_at=now - timedelta(minutes=45),
+            completed_at=now - timedelta(minutes=44),
+        )
+    )
+    db.add(
+        ProcessingJob(
+            category="ai",
+            job_type="ai_document_summary",
+            title="Resumo IA · VALE3 - Relatório de Desempenho",
+            target_id="2",
+            status="pending",
+            priority=0,
+            created_at=now - timedelta(minutes=5),
+        )
+    )
+    db.add(
+        ProcessingJob(
+            category="api",
+            job_type="api_quotes_poll",
+            title="Coleta de Cotações · B3 & Brapi",
+            status="completed",
+            priority=0,
+            created_at=now - timedelta(minutes=10),
+            started_at=now - timedelta(minutes=10),
+            completed_at=now - timedelta(minutes=9),
+        )
+    )
     db.commit()

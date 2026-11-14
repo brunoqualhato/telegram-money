@@ -97,3 +97,63 @@ class DocumentInput(Input):
 
 class Toggle(Input):
     enabled: bool
+
+
+class SetupInput(Input):
+    email: str = Field(max_length=254)
+    password: str = Field(min_length=12, max_length=200)
+    timezone: str = "America/Sao_Paulo"
+    telegram_bot_token: str = ""
+    telegram_bot_username: str = ""
+    brapi_token: str = ""
+    poll_seconds: int = Field(default=120, ge=30)
+    ai_provider: Literal["lmstudio", "ollama"] = "lmstudio"
+    lm_studio_base_url: str = "http://host.docker.internal:1235/v1"
+    lm_studio_model: str = "qwen3.5-9b"
+    lm_studio_api_key: str = ""
+    ai_timeout_seconds: int = Field(default=180, ge=5, le=600)
+    ollama_url: str = "http://host.docker.internal:11434"
+    ollama_model: str = ""
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value):
+        return value.strip().lower()
+
+
+class SystemSettingsInput(Input):
+    telegram_bot_token: str = ""
+    telegram_bot_username: str = ""
+    brapi_token: str = ""
+    poll_seconds: int = Field(default=120, ge=30)
+    ai_provider: Literal["lmstudio", "ollama"] = "lmstudio"
+    lm_studio_base_url: str = "http://host.docker.internal:1235/v1"
+    lm_studio_model: str = "qwen3.5-9b"
+    lm_studio_api_key: str = ""
+    ai_timeout_seconds: int = Field(default=180, ge=5, le=600)
+    ollama_url: str = "http://host.docker.internal:11434"
+    ollama_model: str = ""
+
+
+class TelegramTestInput(Input):
+    token: str = Field(min_length=1)
+
+
+class AITestInput(Input):
+    provider: Literal["lmstudio", "ollama"] = "lmstudio"
+    url: str = Field(min_length=1)
+    api_key: str = ""
+
+
+class ProfileUpdateInput(Input):
+    email: str | None = None
+    current_password: str | None = None
+    new_password: str | None = None
+
+
+class QueueSettingsInput(Input):
+    max_ai_concurrency: int = Field(default=1, ge=1, le=10)
+    max_api_concurrency: int = Field(default=2, ge=1, le=20)
+    ai_queue_paused: bool = False
+    ai_job_timeout_seconds: int = Field(default=120, ge=30, le=900)
+    api_poll_interval_seconds: int = Field(default=120, ge=30, le=3600)

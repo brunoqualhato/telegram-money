@@ -16,6 +16,7 @@ from .routers import (
     integrations,
     notifications,
     portfolio,
+    queue,
     reports,
     rules,
     system,
@@ -73,6 +74,7 @@ app.include_router(documents.router)
 app.include_router(treasury.router)
 app.include_router(reports.router)
 app.include_router(integrations.router)
+app.include_router(queue.router)
 
 frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if (frontend_dist / "assets").is_dir():

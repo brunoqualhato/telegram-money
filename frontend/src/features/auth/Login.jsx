@@ -1,4 +1,5 @@
 import LoginCredentials from "./LoginCredentials.jsx";
+import SetupWizard from "./SetupWizard.jsx";
 import { useState, useEffect } from "react";
 import { ArrowRight, BellRing, ShieldCheck, Sparkles } from "lucide-react";
 import Logo from "../../components/Logo.jsx";
@@ -63,34 +64,39 @@ export default function Login({ onLogin }) {
         <small>Monitor pessoal · Sem execução de ordens</small>
       </section>
       <section className="login-form">
-        <div>
-          <div className="eyebrow">BEM-VINDO AO SEU PAINEL</div>
-          <h2>Bom ter você por aqui.</h2>
-          <p>Acesse seu radar de investimentos.</p>
-          {setup?.demo && (
-            <div className="notice">
-              Demonstração local com dados ilustrativos. Nenhuma mensagem será
-              enviada.
-            </div>
-          )}
-          {setup && !setup.configured && (
-            <div className="notice">
-              Defina OWNER_EMAIL e uma OWNER_PASSWORD de pelo menos 12
-              caracteres no .env e reinicie a API para criar seu acesso.
-            </div>
-          )}
-          <form onSubmit={submit}>
-            <LoginCredentials demo={setup?.demo} />
-            <ErrorBox error={error} />
-            <Button disabled={busy || !setup?.configured} icon={ArrowRight}>
-              {busy ? "Entrando…" : "Entrar no meu painel"}
-            </Button>
-          </form>
-          <p className="login-foot">
-            <ShieldCheck size={16} /> Acesso privado. Credenciais configuradas
-            no seu servidor.
-          </p>
-        </div>
+        {setup && !setup.configured ? (
+          <SetupWizard
+            onComplete={() => {
+              api("/setup")
+                .then(setSetup)
+                .catch(() => {});
+              onLogin();
+            }}
+          />
+        ) : (
+          <div>
+            <div className="eyebrow">BEM-VINDO AO SEU PAINEL</div>
+            <h2>Bom ter você por aqui.</h2>
+            <p>Acesse seu radar de investimentos.</p>
+            {setup?.demo && (
+              <div className="notice">
+                Demonstração local com dados ilustrativos. Nenhuma mensagem será
+                enviada.
+              </div>
+            )}
+            <form onSubmit={submit}>
+              <LoginCredentials demo={setup?.demo} />
+              <ErrorBox error={error} />
+              <Button disabled={busy || !setup?.configured} icon={ArrowRight}>
+                {busy ? "Entrando…" : "Entrar no meu painel"}
+              </Button>
+            </form>
+            <p className="login-foot">
+              <ShieldCheck size={16} /> Acesso privado. Credenciais configuradas
+              no seu servidor.
+            </p>
+          </div>
+        )}
       </section>
     </main>
   );

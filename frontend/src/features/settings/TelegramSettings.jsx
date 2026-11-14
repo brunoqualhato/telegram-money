@@ -1,8 +1,62 @@
 import { Send } from "lucide-react";
 import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
+import TelegramBotForm from "./TelegramBotForm.jsx";
 
-export default function TelegramSettings({ me, connect, act }) {
+const COMMANDS = [
+  "/cotacao PETR4",
+  "/carteira",
+  "/proventos",
+  "/tesouro",
+  "/resumo",
+  "/alertas",
+  "/pausar",
+  "/retomar",
+  "/sair",
+];
+
+function TelegramActions({ isConnected, connect, act }) {
+  if (!isConnected) {
+    return (
+      <div className="button-row">
+        <Button icon={Send} onClick={connect}>
+          Conectar Telegram
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="button-row">
+      <Button icon={Send} onClick={connect}>
+        Gerar novo vínculo
+      </Button>
+      <Button secondary onClick={() => act("/telegram/test", "POST")}>
+        Enviar teste
+      </Button>
+      <button
+        className="text-button danger"
+        onClick={() => act("/telegram/link", "DELETE")}
+      >
+        Desvincular
+      </button>
+    </div>
+  );
+}
+
+export default function TelegramSettings({
+  me,
+  integrations = {},
+  connect,
+  act,
+  reload,
+  toast,
+}) {
+  const isConnected = Boolean(me?.telegram_connected);
+  const accountName = me?.telegram_name ? `@${me.telegram_name}` : "pessoal";
+  const statusNote = isConnected
+    ? `Conta ${accountName} vinculada.`
+    : "Crie um bot pelo BotFather, configure o token abaixo e gere seu link de conexão.";
+
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -13,47 +67,25 @@ export default function TelegramSettings({ me, connect, act }) {
         <Send size={20} />
       </div>
       <div className="panel-body">
-        <Badge tone={me.telegram_connected ? "green" : ""}>
-          {me.telegram_connected ? "Conectado" : "Não conectado"}
+        <Badge tone={isConnected ? "green" : ""}>
+          {isConnected ? "Conectado" : "Não conectado"}
         </Badge>
-        <p>
-          {me.telegram_connected
-            ? `Conta ${me.telegram_name ? `@${me.telegram_name}` : "pessoal"} vinculada.`
-            : "Crie um bot pelo BotFather, configure o token no .env e gere seu link de conexão."}
-        </p>
-        <div className="button-row">
-          <Button icon={Send} onClick={connect}>
-            {me.telegram_connected ? "Gerar novo vínculo" : "Conectar Telegram"}
-          </Button>
-          {me.telegram_connected && (
-            <>
-              <Button secondary onClick={() => act("/telegram/test", "POST")}>
-                Enviar teste
-              </Button>
-              <button
-                className="text-button danger"
-                onClick={() => act("/telegram/link", "DELETE")}
-              >
-                Desvincular
-              </button>
-            </>
-          )}
-        </div>
+        <p>{statusNote}</p>
+        <TelegramActions
+          isConnected={isConnected}
+          connect={connect}
+          act={act}
+        />
         <div className="command-list">
-          {[
-            "/cotacao PETR4",
-            "/carteira",
-            "/proventos",
-            "/tesouro",
-            "/resumo",
-            "/alertas",
-            "/pausar",
-            "/retomar",
-            "/sair",
-          ].map((x) => (
+          {COMMANDS.map((x) => (
             <code key={x}>{x}</code>
           ))}
         </div>
+        <TelegramBotForm
+          integrations={integrations}
+          reload={reload}
+          toast={toast}
+        />
       </div>
     </section>
   );

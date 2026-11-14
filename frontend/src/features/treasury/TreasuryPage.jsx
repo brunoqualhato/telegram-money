@@ -1,10 +1,45 @@
-import { Landmark } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Landmark, Search } from "lucide-react";
 import Badge from "../../components/ui/Badge.jsx";
 import Empty from "../../components/ui/Empty.jsx";
-import { money } from "../../lib/formatters.js";
-import { date } from "../../lib/formatters.js";
+import Pagination from "../../components/ui/Pagination.jsx";
+import { usePagination } from "../../lib/usePagination.js";
+import { money, date } from "../../lib/formatters.js";
+
+function TreasuryRow({ row }) {
+  return (
+    <tr>
+      <td>
+        <strong>{row.title}</strong>
+      </td>
+      <td>{row.maturity}</td>
+      <td className="positive numeric">{Number(row.rate).toFixed(2)}% a.a.</td>
+      <td className="numeric">{money(row.price)}</td>
+      <td>{date(row.observed_on)}</td>
+    </tr>
+  );
+}
 
 export default function TreasuryPage({ items }) {
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+
+  const filtered = useMemo(() => {
+    return items.filter((row) => {
+      const titleLower = row.title?.toLowerCase() || "";
+      const matchType =
+        typeFilter === "all" || titleLower.includes(typeFilter.toLowerCase());
+      const term = search.toLowerCase();
+      const matchSearch =
+        !search ||
+        titleLower.includes(term) ||
+        row.maturity?.toLowerCase().includes(term);
+      return matchType && matchSearch;
+    });
+  }, [items, typeFilter, search]);
+
+  const pagination = usePagination(filtered, 10);
+
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -17,7 +52,37 @@ export default function TreasuryPage({ items }) {
         </div>
         <Badge>Fonte: Tesouro Nacional</Badge>
       </div>
-      {items.length ? (
+
+      <div className="table-toolbar">
+        <div className="search">
+          <Search size={16} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por título ou vencimento"
+            aria-label="Buscar títulos públicos"
+          />
+        </div>
+        <div className="tabs">
+          {[
+            ["all", "Todos"],
+            ["selic", "Tesouro Selic"],
+            ["ipca", "Tesouro IPCA+"],
+            ["prefixado", "Prefixados"],
+          ].map(([val, label]) => (
+            <button
+              key={val}
+              className={typeFilter === val ? "active" : ""}
+              onClick={() => setTypeFilter(val)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <small>{filtered.length} títulos</small>
+      </div>
+
+      {filtered.length ? (
         <div className="table-scroll">
           <table>
             <thead>
@@ -30,28 +95,26 @@ export default function TreasuryPage({ items }) {
               </tr>
             </thead>
             <tbody>
-              {items.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <strong>{row.title}</strong>
-                  </td>
-                  <td>{row.maturity}</td>
-                  <td className="positive numeric">
-                    {Number(row.rate).toFixed(2)}% a.a.
-                  </td>
-                  <td className="numeric">{money(row.price)}</td>
-                  <td>{date(row.observed_on)}</td>
-                </tr>
+              {pagination.pagedItems.map((row) => (
+                <TreasuryRow key={row.id} row={row} />
               ))}
             </tbody>
           </table>
         </div>
       ) : (
-        <Empty icon={Landmark} title="Taxas ainda não coletadas">
+        <Empty icon={Landmark} title="Nenhum título encontrado">
           O worker consulta o CSV oficial às 10h10 e 15h10. Nenhum valor
           fictício é mostrado aqui.
         </Empty>
       )}
+
+      <Pagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </section>
   );
 }

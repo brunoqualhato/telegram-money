@@ -11,7 +11,8 @@ from .services.portfolio import parse_b3_position
 def main():
     parser = argparse.ArgumentParser(description="Administração local do proprietário")
     parser.add_argument("command", choices=["reset-password", "import-b3"])
-    parser.add_argument("file_path", nargs="?", help="Caminho do arquivo XLSX da B3 para importação")
+    parser.add_argument("file_path", nargs="?", help="Caminho do arquivo XLSX/CSV da B3 para importação")
+    parser.add_argument("--update-price", action="store_true", help="Atualiza preço médio dos ativos existentes")
     args = parser.parse_args()
     if args.command == "reset-password":
         password = getpass.getpass("Nova senha (12+ caracteres): ")
@@ -46,12 +47,14 @@ def main():
             created = updated = 0
             for it in items:
                 ticker = it["ticker"]
+                if it["quantity"] == 0 and ticker not in existing:
+                    continue
                 if ticker in existing:
                     asset = existing[ticker]
                     asset.quantity = it["quantity"]
                     if it["name"] and not asset.name:
                         asset.name = it["name"]
-                    if asset.average_price == 0:
+                    if it.get("average_price_known", True) and (args.update_price or asset.average_price == 0):
                         asset.average_price = it["average_price"]
                     updated += 1
                 else:

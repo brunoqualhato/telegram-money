@@ -8,6 +8,7 @@ import EventsPage from "../features/events/EventsPage.jsx";
 import ReportsPage from "../features/reports/ReportsPage.jsx";
 import HistoryPage from "../features/notifications/HistoryPage.jsx";
 import TreasuryPage from "../features/treasury/TreasuryPage.jsx";
+import QueuePage from "../features/queue/QueuePage.jsx";
 
 const PAGES = {
   assets: AssetsPage,
@@ -16,6 +17,7 @@ const PAGES = {
   reports: ReportsPage,
   history: HistoryPage,
   treasury: TreasuryPage,
+  queue: QueuePage,
 };
 
 export default function PageContent(props) {
@@ -35,6 +37,7 @@ export default function PageContent(props) {
     act,
     integrations,
     reload,
+    loadPage,
     notify,
   } = props;
   const Page = PAGES[page];
@@ -76,6 +79,8 @@ export default function PageContent(props) {
                   settings: "Seu painel, suas preferências, seu ritmo.",
                   treasury:
                     "Taxas de compra da base oficial do Tesouro Nacional.",
+                  queue:
+                    "Controle de concorrência, limites de máquina e tarefas em espera.",
                 }[page]
               }
             </p>
@@ -104,7 +109,10 @@ export default function PageContent(props) {
               integrations={integrations}
               connect={connect}
               act={act}
-              reload={reload}
+              reload={async () => {
+                await reload();
+                await loadPage();
+              }}
               toast={notify}
             />
           )}

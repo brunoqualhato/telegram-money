@@ -6,13 +6,15 @@ from ..db import utcnow
 from ..models import Notification, Owner
 from .alerts import is_quiet
 from .providers import state
+from .settings import get_app_setting
 
 
 def send_pending(db, client=None):
     owner = db.scalar(select(Owner))
+    bot_token = get_app_setting("telegram_bot_token", db=db)
     if (
         settings().demo_mode
-        or not settings().telegram_bot_token
+        or not bot_token
         or not owner
         or not owner.chat_id
         or not owner.notifications_enabled
@@ -54,7 +56,7 @@ def send_pending(db, client=None):
             db.commit()
             try:
                 response = client.post(
-                    f"https://api.telegram.org/bot{settings().telegram_bot_token}/sendMessage",
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
                     json={
                         "chat_id": owner.chat_id,
                         "text": item.body[:4000],

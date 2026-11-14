@@ -6,7 +6,7 @@ export default function usePanelData({ page, setError, setSearch, setFilter }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({ assets: [] });
   const [items, setItems] = useState([]);
-  const [integrations, setIntegrations] = useState({});
+  const [integrations, setIntegrations] = useState(null);
   const authenticated = Boolean(me);
   const reload = useCallback(async () => {
     const [owner, overview] = await Promise.all([api("/me"), api("/overview")]);
@@ -43,6 +43,7 @@ export default function usePanelData({ page, setError, setSearch, setFilter }) {
     setItems([]);
     setSearch("");
     setFilter("all");
+    if (page === "settings") setIntegrations(null);
     loadPage(controller.signal).catch((error) => {
       if (error.name !== "AbortError") setError(error.message);
     });

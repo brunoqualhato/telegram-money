@@ -107,40 +107,16 @@ def test_retry_only_failed_or_uncertain(client, db):
 
 
 def test_import_b3_position(client, db):
-    from pathlib import Path
+    from b3_fixtures import custody_xlsx
 
-    sample = Path("/Users/brunoqualhato/Downloads/posicao-2026-11-13-22-19-05.xlsx")
-    if sample.is_file():
-        with open(sample, "rb") as f:
-            res = client.post(
-                "/api/assets/import-b3",
-                files={
-                    "file": (
-                        "posicao.xlsx",
-                        f.read(),
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    )
-                },
-            )
-        assert res.status_code == 200, res.text
-        data = res.json()
-        assert data["imported"] == 25
-        assert data["updated"] == 0
-        # Second import updates existing
-        with open(sample, "rb") as f:
-            res2 = client.post(
-                "/api/assets/import-b3",
-                files={
-                    "file": (
-                        "posicao.xlsx",
-                        f.read(),
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    )
-                },
-            )
-        assert res2.status_code == 200
-        assert res2.json()["imported"] == 0
-        assert res2.json()["updated"] == 25
+    sample = custody_xlsx()
+    res = client.post("/api/assets/import-b3", files={"file": ("posicao.xlsx", sample)})
+    assert res.status_code == 200, res.text
+    assert res.json()["imported"] == 1
+    res = client.post("/api/assets/import-b3", files={"file": ("posicao.xlsx", sample)})
+    assert res.status_code == 200
+    assert res.json()["imported"] == 0
+    assert res.json()["updated"] == 1
 
     # Test CSV import
     csv_content = (
@@ -154,3 +130,7 @@ def test_import_b3_position(client, db):
     assert res_csv.status_code == 200
     assert db.scalar(select(Asset).where(Asset.ticker == "ITUB4")).quantity == 50
 
+    # Test portfolio history endpoint
+    resp = client.get("/api/portfolio/history")
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)

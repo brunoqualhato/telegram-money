@@ -6,12 +6,12 @@ from redis import Redis
 from sqlalchemy import delete, select
 from .config import settings
 from .db import SessionLocal, utcnow
-from .models import AuthSession, Document, Owner, Quote, TelegramLink
+from .models import AuthSession, Owner, Quote, TelegramLink
 from .services.delivery import send_pending
-from .services.documents import summarize_document
 from .services.events import event_reminders
 from .services.providers import collect_dividends, collect_news, collect_quotes, collect_treasury
 from .services.reports import scheduled_reports
+from .services.settings import get_app_setting, save_settings
 
 celery = Celery("telegram_money", broker=settings().redis_url, include=["app.tasks"])
 celery.conf.update(
@@ -24,7 +24,7 @@ celery.conf.update(
     task_soft_time_limit=840,
     task_time_limit=900,
     beat_schedule={
-        "quotes": {"task": "market.poll", "schedule": settings().poll_seconds},
+        "quotes": {"task": "market.poll", "schedule": 10.0},
         "deliver": {"task": "notifications.deliver", "schedule": 10.0},
         "events": {"task": "market.events", "schedule": 3600.0},
         "news": {"task": "market.news", "schedule": 3600.0},
@@ -53,8 +53,21 @@ def locked(name, function):
 
 
 @celery.task(name="market.poll", expires=120)
-def poll_market():
-    return locked("quotes", collect_quotes)
+def poll_market(force=False):
+    def run(db):
+        from datetime import datetime
+        from .db import aware
+
+        interval = int(get_app_setting("poll_seconds", str(settings().poll_seconds), db=db))
+        last = get_app_setting("quotes_last_polled_at", "", db=db)
+        now = utcnow()
+        if not force and last and (now - aware(datetime.fromisoformat(last))).total_seconds() < interval:
+            return 0
+        result = collect_quotes(db)
+        save_settings(db, {"quotes_last_polled_at": now.isoformat()})
+        return result
+
+    return locked("quotes", run)
 
 
 @celery.task(name="market.events", expires=3600)
@@ -80,9 +93,9 @@ def deliver():
 @celery.task(name="documents.pending", expires=60)
 def pending_documents():
     def run(db):
-        row = db.scalar(select(Document).where(Document.status == "pending").order_by(Document.id).limit(1))
-        if row:
-            summarize_document(db, row.id)
+        from .services.queue import dispatch_queue
+
+        dispatch_queue(db)
 
     return locked("documents", run)
 

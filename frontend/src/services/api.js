@@ -10,11 +10,13 @@ export async function api(path, options = {}) {
     body: options.body && !isForm ? JSON.stringify(options.body) : options.body,
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  if (!response.ok || body.ok === false) {
     const detail = Array.isArray(body.detail)
       ? body.detail.map((x) => `${x.loc?.at(-1)}: ${x.msg}`).join("; ")
       : body.detail;
-    const error = new Error(detail || "Não foi possível completar a operação.");
+    const error = new Error(
+      detail || body.error || "Não foi possível completar a operação.",
+    );
     error.status = response.status;
     throw error;
   }

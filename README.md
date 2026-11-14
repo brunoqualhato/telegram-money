@@ -1,177 +1,210 @@
 # Telegram Money
 
-[![Status: Em Desenvolvimento](https://img.shields.io/badge/status-em_desenvolvimento-orange?style=for-the-badge)](docs/implementacao.md)
+Monitor financeiro pessoal com painel React 19, API FastAPI, PostgreSQL, Redis, Celery e bot Telegram. Um proprietário acompanha posições, cotações, proventos, documentos e alertas. Não executa ordens nem se conecta à corretora.
 
-> [!IMPORTANT]
-> 🚧 **PROJETO EM DESENVOLVIMENTO ATIVO**
-> Este sistema está em fase ativa de desenvolvimento e modernização. Funcionalidades de monitoramento, integração de APIs abertas, importações de custódia e inteligência analítica estão em constante evolução. Consulte a [matriz de implementação](docs/implementacao.md) e a [documentação de arquitetura](docs/arquitetura.md) para detalhes técnicos.
+O projeto está em desenvolvimento. Cotações podem estar atrasadas; cobertura e disponibilidade dependem das fontes. Gráficos e relatórios não representam retorno total nem reconstroem operações passadas.
 
-Monitor financeiro **pessoal** com painel React, API FastAPI, PostgreSQL, Redis, Celery e bot Telegram (aiogram). Adaptado para uso pessoal por um único proprietário, com suporte a APIs abertas gratuitas e sem dependência de planos ou assinaturas pagas.
+## Documentação
 
----
+| Documento                                                 | Conteúdo                                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------- |
+| [Arquitetura](docs/arquitetura.md)                        | Serviços, persistência, filas, agendamentos, API e segurança    |
+| [Situação da implementação](docs/implementacao.md)        | Funcionalidades disponíveis, limites e pendências               |
+| [Frontend](frontend/README.md)                            | Desenvolvimento, componentes, cálculos e verificações do painel |
+| [Correções e validações](docs/plano-correcoes-revisao.md) | Registro da revisão, dashboard e atualização dos containers     |
+| [Requisitos originais](docs/requisitos-originais.md)      | Referência histórica; o escopo pessoal atual prevalece          |
 
-## Telas do Sistema
+## Funcionalidades do painel
 
-### 1. Visão Geral (Dashboard)
-Painel consolidado com patrimônio total, rentabilidade estimada, gráfico de alocação por classe de ativos e destaques de cotações em tempo real.
-![Visão Geral](docs/screenshots/01-visao-geral.png)
+| Tela            | O que oferece                                                                                                                            |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Visão geral     | Patrimônio em BRL, custo informado, resultado, variação diária e cobertura dos dados; seis gráficos e consulta interativa nos históricos |
+| Meus ativos     | Cadastro, edição, listas, quantidade, preço médio e importação B3 `.xlsx`/`.csv`; até 50 ativos pela API                                 |
+| Meus alertas    | Preço acima/abaixo, alta/queda diária, oscilação absoluta e extremos de 52 semanas; pausa e rearme                                       |
+| Proventos       | Eventos, datas com/ex/pagamento, fontes e atualização manual                                                                             |
+| Documentos e IA | Importação de texto/PDF, notícias por RSS e resumos com evidências literais                                                              |
+| Fila & Recursos | Tarefas de IA, pausa, prioridade, cancelamento, nova tentativa e limites de recursos                                                     |
+| Relatórios      | Diário, semanal, mensal e sob demanda; leitura e download em texto                                                                       |
+| Histórico       | Notificações, tentativas e situações de entrega; reenvio manual                                                                          |
+| Tesouro Direto  | Taxas e preços da última data-base do CSV oficial                                                                                        |
+| Configurações   | Perfil, preferências, Telegram, fontes e gateway de IA                                                                                   |
 
-### 2. Meus Ativos & Carteira
-Gestão completa dos ativos da carteira (ações, FIIs, ETFs, BDRs), quantidades, preço médio, cotação atual e variação diária.
-![Meus Ativos](docs/screenshots/02-meus-ativos.png)
+As capturas em [docs/screenshots](docs/screenshots) são referências de versões anteriores. Os gráficos e controles atuais são descritos abaixo.
 
-### 3. Importação de Carteira da B3
-Importação direta da posição de custódia emitida na Área do Investidor da B3 (`.xlsx` ou `.csv`), processada instantaneamente sem necessidade de digitação manual.
-![Importação B3](docs/screenshots/03-importar-b3-modal.png)
+### Indicadores e gráficos da carteira
 
-### 4. Proventos & Rendimentos
-Acompanhamento de proventos provisionados e históricos (dividendos, JCP e rendimentos de FIIs), datas de corte (*data-com*) e datas de pagamento via provedores abertos da B3.
-![Proventos](docs/screenshots/04-proventos.png)
+A dashboard mostra evolução patrimonial/resultado, alocação por classe, impacto diário por ativo, ganhos/perdas, histórico individual e concentração nas maiores posições. É responsiva; os históricos permitem consultar valores com o mouse ou pelo controle de teclado.
 
-### 5. Notícias de Mercado & Análise por IA
-Feed em tempo real de notícias financeiras dos ativos da carteira (via RSS aberto de fontes confiáveis brasileiras) e extração de fatos relevantes com IA local (LM Studio / Ollama).
-![Notícias e Documentos](docs/screenshots/05-documentos-noticias.png)
+- **Patrimônio:** soma das posições com quantidade positiva, valor válido e cotação em BRL. Ativos sem cotação em reais ficam fora do total e aparecem na cobertura dos dados.
+- **Custo e resultado:** consideram somente posições cotadas com preço médio positivo. Custo ausente não vira lucro; o percentual usa o custo conhecido dessas posições.
+- **Variação diária:** para cada posição, o patrimônio anterior é estimado por `valor_atual / (1 + variação_percentual / 100)`. A variação consolidada usa a soma desses valores anteriores, não a média simples dos percentuais. Variações ausentes ou menores ou iguais a -100% são excluídas.
+- **Alocação e concentração:** usam o patrimônio cotado em BRL como denominador. A concentração soma os pesos dos três maiores ativos disponíveis; não é uma classificação de risco.
+- **Evolução histórica:** aplica quantidades e custos atuais às cotações históricas. Recupera a última cotação anterior à janela e omite dias incompletos. O resultado histórico exige custo informado nas posições cotadas.
 
-### 6. Alertas e Regras de Mercado
-Configuração de limites de preço, disparos por oscilação diária e monitoramento de máximas/mínimas de 52 semanas com deduplicação e rearme automático.
-![Meus Alertas](docs/screenshots/06-alertas.png)
+Proventos, taxas, aportes, retiradas, posições encerradas e elegibilidade a pagamentos não são incorporados como retorno total. Dashboard, relatório textual e snapshot da API têm apresentações próprias; não trate seus resultados como demonstração contábil ou fiscal.
 
-### 7. Tesouro Direto
-Acompanhamento diário das taxas de rentabilidade e preços unitários dos títulos públicos federais direto da base oficial do Tesouro Nacional.
-![Tesouro Direto](docs/screenshots/07-tesouro-direto.png)
+### Importação B3
 
-### 8. Relatórios Consolidados
-Geração sob demanda e agendada de relatórios periódicos da carteira com evolução patrimonial e resumo de movimentações.
-![Relatórios](docs/screenshots/08-relatorios.png)
+A importação aceita posição de custódia e extrato de movimentação da Área do Investidor, por arquivo de até 10 MB.
 
-### 9. Histórico de Notificações
-Auditoria completa de todas as notificações enviadas para o Telegram, tentativas de entrega, confirmações e fila persistente.
-![Histórico de Alertas](docs/screenshots/09-historico.png)
+| Arquivo      | Quantidade                                                                                      | Preço médio                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Custódia     | Atualiza a posição encontrada                                                                   | Preserva o custo existente; preço de fechamento não é custo de aquisição. Novos ativos ficam com custo zero até preenchimento |
+| Movimentação | Consolida compras, vendas e movimentos reconhecidos; zera ativos existentes totalmente vendidos | Calcula custo ponderado; atualizar custo existente é uma opção desmarcada por padrão                                          |
 
-### 10. Configurações & Integrações
-Ajustes de preferências, fuso horário, limites de envio, vinculação privada do bot do Telegram e diagnóstico do gateway de IA local.
-![Configurações](docs/screenshots/10-configuracoes.png)
+Envie o histórico completo de movimentações. Um extrato parcial não reconstrói saldos anteriores. Ativos ausentes do arquivo não são excluídos automaticamente; posições zeradas que ainda não existiam não são cadastradas apenas por terem movimentação passada.
 
----
+A CLI também aceita `.xlsx`/`.csv`:
 
-## O que já existe
+```bash
+cd backend
+uv run python -m app.cli import-b3 /caminho/movimentacao.xlsx
+# Para atualizar custo conhecido dos ativos existentes:
+uv run python -m app.cli import-b3 /caminho/movimentacao.xlsx --update-price
+```
 
-- **Status: Em desenvolvimento ativo**, com arquitetura modular desacoplada ([ver arquitetura](docs/arquitetura.md)).
-- Login privado por e-mail e senha; sessão revogável em cookie HttpOnly e proteção de origem nas mutações.
-- Importação direta de posições de custódia da **B3** via arquivo `.xlsx` (Área do Investidor) e `.csv`, tanto pelo painel web quanto via CLI (`python -m app.cli import-b3`).
-- **Coleta de cotações aberta e gratuita** da B3 sem token ou plano pago, com fallback e preservação de dados.
-- **Coleta de proventos aberta e gratuita** com extração de dividendos, JCP e rendimentos de FIIs provisionados e pagos.
-- **Feed de notícias financeiras gratuitas** via busca RSS de mercado em português, com deduplicação por hash e extração inteligente.
-- Alertas de preço acima/abaixo, alta/queda diária, oscilação absoluta e máximas/mínimas de 52 semanas.
-- Rearme quando a condição volta ao normal; deduplicação de eventos e fila persistente no banco.
-- Pausa, horário de silêncio, fuso, limite de mensagens por hora e reenvio manual.
-- Vinculação Telegram por código temporário de uso único, comandos e menu inline.
-- Taxas **diárias** do Tesouro Nacional por CSV oficial.
-- Importação de texto/PDF e resumos com LM Studio (gateway padrão) ou Ollama local, incluindo evidências literais, interpretações e informações ausentes.
-- Relatórios diários, semanais, mensais e sob demanda; download em texto.
-- Histórico de tentativas, auditoria, migrations Alembic e scripts de backup/restauração.
+O limite de 50 ativos é validado pela API; o comando de importação da CLI não aplica esse limite.
 
-Não inclui execução de ordens nem se conecta à corretora. Posições são informadas manualmente ou importadas da B3. Custo médio e quantidades não reconstroem operações históricas passadas.
+## Instalação com Docker
 
-## Executar com Docker
+Requisitos: Docker Engine/Desktop ativo, Compose v2 e Python 3 para o assistente de terminal.
 
-Requisitos: Docker Engine/Desktop ativo, Compose v2 e Python 3 para o assistente de configuração.
-
-Na raiz do projeto:
+Na raiz:
 
 ```bash
 python3 scripts/setup.py
-docker compose up -d --build
+# Mesmo assistente:
+python3 scripts/setup_wizard.py
 ```
 
-O assistente solicita seu e-mail e senha (12+ caracteres), gera a senha do PostgreSQL e cria `.env` com permissão 600. **Não cole tokens ou senhas no chat nem os versione.** Se `.env` já existir, o assistente não o sobrescreve.
+O assistente verifica o ambiente, solicita e-mail/senha, configura infraestrutura e integrações opcionais, grava `.env` com permissão `600` e oferece iniciar o Compose. Pode consultar Telegram, brapi e gateways locais quando essas verificações forem escolhidas. `--check-only` executa apenas o diagnóstico; `--quick` usa o fluxo reduzido. Em reconfigurações, guarde o `.env.bak` como segredo e não o versione.
 
-Abra [http://localhost:8000](http://localhost:8000). A API executa as migrations e cria o proprietário no primeiro início. Alterar `OWNER_PASSWORD` depois disso não muda a senha existente: use o comando de reset abaixo.
+Para iniciar manualmente:
 
-O painel funciona sem Telegram e sem IA, mostrando o que ainda falta configurar. O worker coleta somente ativos cadastrados. Banco e Redis não expõem portas no host. A API fica restrita a `127.0.0.1` por padrão.
+```bash
+docker compose up -d --build --wait
+```
 
-### Conectar o Telegram
+Abra [http://localhost:8000](http://localhost:8000). A API aplica as migrations antes de iniciar. PostgreSQL e Redis não publicam portas no host; somente a API publica `127.0.0.1:8000`. O bot é opcional e não inicia sem o perfil `telegram`.
 
-1. Crie um bot dedicado em [@BotFather](https://t.me/BotFather), usando `/newbot`.
-2. Preencha **localmente** `TELEGRAM_BOT_TOKEN` e `TELEGRAM_BOT_USERNAME` (com ou sem `@`) em `.env`.
-3. Reinicie os serviços para carregarem a configuração:
+### Primeiro acesso pelo navegador
+
+Também é possível preparar somente a infraestrutura a partir de `.env.example`, definir uma senha PostgreSQL forte localmente e iniciar o Compose. Se não existir proprietário e `OWNER_PASSWORD` estiver vazio, o painel mostra o assistente web e cria o acesso inicial. Se a senha de bootstrap estiver definida no ambiente, o proprietário é criado no início da API.
+
+Depois do primeiro acesso, os testes públicos do setup são bloqueados. Use os testes autenticados em **Configurações**. Alterar `OWNER_PASSWORD` no `.env` não troca a senha de um proprietário existente; use o perfil no painel ou o reset no terminal.
+
+### Docker Desktop e contextos
+
+Se `docker compose` apontar para um socket indisponível por causa de `DOCKER_HOST`, confira os contextos e use o contexto que contém os containers do projeto:
+
+```bash
+docker context ls
+docker --context desktop-linux compose ps --all
+```
+
+`desktop-linux` é o contexto do Docker Desktop verificado nesta instalação. Não é necessário alterar o contexto global. Nos comandos seguintes, substitua `docker compose` por `docker --context desktop-linux compose` quando precisar desse contexto.
+
+### Rebuild preservando os dados
+
+Na raiz, reconstrua a imagem compartilhada antes de interromper os serviços:
+
+```bash
+docker compose build api
+docker compose stop worker beat
+docker compose up -d --no-build --force-recreate --wait --wait-timeout 180 api worker beat
+docker compose ps --all
+docker compose exec -T api alembic current
+docker compose exec -T worker celery -A app.tasks:celery inspect ping --timeout 10
+```
+
+A API aplica as migrations; worker e beat aguardam sua saúde. Os volumes `postgres-data`, `redis-data` e `beat-data` são preservados. Esse procedimento mantém o bot opcional fora da recriação. Se ele já estiver em uso, pare-o antes da atualização e recrie-o depois com `docker compose --profile telegram up -d --no-build --force-recreate bot`. Evite `down -v`, que remove os volumes.
+
+## Configurações e integrações
+
+Integrações salvas no painel ficam em `system_settings` e prevalecem sobre os valores equivalentes do ambiente. Cada formulário envia somente sua seção; campos de segredo em branco mantêm o valor existente. O painel informa se um segredo está configurado, sem devolvê-lo em `GET /api/integrations`.
+
+Infraestrutura, origem/cookie, demonstração e lista de origens de IA autorizadas continuam no ambiente. A configuração de ambiente é carregada por processo; alterações nela exigem reinício/recriação dos processos envolvidos.
+
+| Variável                                                     | Finalidade                                                                                 |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `POSTGRES_PASSWORD`                                          | Obrigatória no Compose; defina localmente antes de iniciar                                 |
+| `DATABASE_URL`, `REDIS_URL`                                  | Banco e broker. O Compose substitui pelos endereços internos                               |
+| `APP_ORIGIN`                                                 | Origem exata permitida nas mutações, padrão `http://localhost:8000`                        |
+| `COOKIE_SECURE`                                              | `false` em localhost HTTP; `true` em uma instalação com HTTPS                              |
+| `TIMEZONE`                                                   | Fuso do beat, padrão `America/Sao_Paulo`; o proprietário tem preferências de fuso próprias |
+| `OWNER_EMAIL`, `OWNER_PASSWORD`                              | Bootstrap opcional, somente enquanto não existir proprietário                              |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`                | Valores iniciais opcionais; podem ser configurados pelo painel                             |
+| `BRAPI_TOKEN`                                                | Integração opcional; cobertura/cotas dependem do provedor                                  |
+| `POLL_SECONDS`                                               | Intervalo inicial de cotações, padrão 120 s, mínimo 30 s                                   |
+| `AI_PROVIDER`                                                | `lmstudio` (padrão) ou `ollama`; sem fallback automático                                   |
+| `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`, `LM_STUDIO_API_KEY` | Servidor, modelo exato e autenticação opcional do LM Studio                                |
+| `OLLAMA_URL`, `OLLAMA_MODEL`                                 | Instância e modelo instalado do Ollama                                                     |
+| `AI_TIMEOUT_SECONDS`                                         | Prazo inicial do gateway, padrão 180 s; combinado com o limite da fila                     |
+| `AI_ALLOWED_ORIGINS`                                         | Origens extras de gateways autorizados, separadas por vírgula, sem caminho                 |
+| `DEMO_MODE`                                                  | Na API/worker, exemplos locais; bloqueia despacho, coleta e testes de integração reais     |
+
+### Telegram
+
+1. Crie um bot dedicado em [@BotFather](https://t.me/BotFather).
+2. Salve token e username em **Configurações**. O teste de token chama `getMe`; não envia mensagem.
+3. Inicie o processo do bot; se trocou o token de um bot já iniciado, recrie esse processo:
 
    ```bash
-   docker compose --profile telegram up -d --force-recreate api worker beat bot
+   docker compose --profile telegram up -d --no-build --force-recreate bot
    ```
 
-4. No painel, abra **Configurações → Conectar Telegram**, abra o link e toque em **Iniciar**. O código expira em 15 minutos e é consumido uma única vez.
-5. Use **Enviar teste**. O teste segue pausa, silêncio e limite de envio; pode ficar na fila. Consulte o histórico.
+4. Use **Conectar Telegram**, abra o link e toque em **Iniciar**. O código vale 15 minutos e tem uso único.
+5. **Enviar teste** coloca uma mensagem real na fila e segue pausa, silêncio e limite por hora. Consulte o histórico.
 
-O bot usa long polling; não precisa de domínio público ou webhook. Use apenas uma instância do bot. Se existir webhook no token informado, a inicialização é interrompida para não desfazer outra integração.
+O bot lê o token ao iniciar, usa long polling e não remove webhook existente: se houver um, a inicialização é interrompida. Mantenha uma instância do bot. Apenas o chat privado vinculado acessa a carteira.
 
-Comandos:
+Comandos: `/cotacao PETR4`, `/carteira`, `/proventos`, `/tesouro`, `/resumo`, `/alertas`, `/pausar`, `/retomar` e `/sair`. O último remove o vínculo, preservando carteira e histórico.
 
-```text
-/cotacao PETR4
-/carteira
-/proventos
-/tesouro
-/resumo
-/alertas
-/pausar
-/retomar
-/sair
-```
+### Fontes de mercado
 
-Somente o chat privado vinculado acessa os dados. `/sair` desvincula o Telegram; não exclui a carteira nem o histórico.
+Sem token brapi, os coletores usam consultas abertas para ações, FIIs, ETFs e BDRs brasileiros. Com token, podem usar a brapi, com fallback para fontes abertas. Notícias vêm de busca Google News RSS por ativo; não há coleta automática de documentos CVM. Cadastro de cripto, câmbio e exterior não significa cobertura por um coletor.
 
-### Configurar dados e IA
+O Tesouro usa CSV oficial consultado às 10h10 e 15h10 no fuso do beat; consulte a data-base. O painel não oferece cotações ou notícias com garantia de tempo real.
 
-| Variável | Finalidade |
-| --- | --- |
-| `BRAPI_TOKEN` | Token do seu plano na brapi. Cobertura e limites dependem do plano. Sem token, apenas os tickers de teste permitidos pelo provedor podem funcionar. |
-| `POLL_SECONDS` | Intervalo nominal de coleta, mínimo 30 segundos; padrão 120. Dimensione segundo as cotas do seu plano. |
-| `AI_PROVIDER` | Gateway selecionado: `lmstudio` (padrão) ou `ollama`. Não há fallback automático. |
-| `LM_STUDIO_BASE_URL` | API compatível com OpenAI do LM Studio. Local: `http://localhost:1235/v1`; em Docker Desktop: `http://host.docker.internal:1235/v1`. |
-| `LM_STUDIO_MODEL` | ID exato de um modelo disponível no servidor LM Studio. Configurado como `qwen3.5-9b`, identificador do modelo carregado no servidor informado. |
-| `LM_STUDIO_API_KEY` | Token opcional, caso a autenticação esteja ativada no LM Studio. Fica somente no backend. |
-| `AI_TIMEOUT_SECONDS` | Timeout da geração de resumos, padrão 180 segundos. |
-| `OLLAMA_URL` | URL de uma instância de Ollama sob seu controle. Local: `http://localhost:11434`; em Docker Desktop, para o Ollama do host: `http://host.docker.internal:11434`. |
-| `OLLAMA_MODEL` | Nome exato de um modelo já instalado nessa instância. Usado somente com `AI_PROVIDER=ollama`. |
-| `APP_ORIGIN` | Origem exata do painel. Padrão `http://localhost:8000`. Mutações com outra origem são rejeitadas. |
-| `COOKIE_SECURE` | Use `true` se servir via HTTPS. Em localhost HTTP, mantenha `false`. |
-| `DEMO_MODE` | Somente exemplos locais; bloqueia coleta automática e entrega de mensagens. Use um banco exclusivo de demonstração. |
+### IA local
 
-As taxas do Tesouro não exigem token. O CSV é consultado às 10h10 e 15h10 no fuso configurado. Isso **não representa atualização intradiária em tempo real**. Consulte a data-base.
+No painel, selecione provedor, URL, ID exato do modelo e, se necessário, chave do LM Studio. URLs usuais:
 
-Os modelos de IA podem errar. A validação garante que as evidências citadas existem no texto recebido; não garante correção semântica das conclusões. Documentos são enviados apenas ao gateway selecionado na configuração. A compatibilidade com o protocolo OpenAI não usa a API da OpenAI: o endereço padrão é o servidor LM Studio local. Não há fallback silencioso para outro provedor.
+| Provedor  | Desenvolvimento no host    | API/worker no Docker Desktop          |
+| --------- | -------------------------- | ------------------------------------- |
+| LM Studio | `http://localhost:1235/v1` | `http://host.docker.internal:1235/v1` |
+| Ollama    | `http://localhost:11434`   | `http://host.docker.internal:11434`   |
 
-### LM Studio como gateway de IA
+Use a porta real configurada no servidor. As origens locais padrão autorizam LM Studio nas portas 1234/1235 e Ollama em 11434, nos hosts `localhost`, `127.0.0.1`, `[::1]` e `host.docker.internal`. As origens definidas no ambiente para os gateways também são autorizadas. Para outro servidor sob seu controle, configure `AI_ALLOWED_ORIGINS` e recrie API/worker. URLs aceitam HTTP(S), sem credenciais, query ou fragmento; caminho vazio ou `/v1` no LM Studio e vazio no Ollama. Não são seguidos redirecionamentos nem proxies de ambiente.
 
-1. No LM Studio, carregue um modelo com suporte a saída JSON estruturada e inicie o servidor na aba **Developer** (porta 1235, conforme o endereço informado).
-2. Consulte o ID exato do modelo em `http://localhost:1235/v1/models` ou use **Configurações → Testar gateway de IA** no painel.
-3. Configure no `.env`:
+**Testar conexão** consulta modelos, sem enviar documentos ou gerar texto; não garante carregamento do modelo nem suporte à saída estruturada. Resumos usam JSON validado e evidências literais do texto; isso não garante a correção semântica das conclusões. PDF protegido ou sem texto precisa de tratamento externo; não há OCR. O limite de upload é 10 MB, extraindo até 80 páginas com sinalização de conteúdo incompleto.
 
-   ```dotenv
-   AI_PROVIDER=lmstudio
-   LM_STUDIO_BASE_URL=http://localhost:1235/v1
-   LM_STUDIO_MODEL=qwen3.5-9b
-   LM_STUDIO_API_KEY=
-   AI_TIMEOUT_SECONDS=180
-   ```
+No assistente CLI, **Desativar IA** deixa ambos os modelos vazios. Se já houver configuração no banco, ela continua prevalecendo sobre o `.env`.
 
-   Se API/worker estiverem em Docker Desktop e o LM Studio estiver no host, use `LM_STUDIO_BASE_URL=http://host.docker.internal:1235/v1`. O servidor do LM Studio precisa aceitar a conexão a partir dos containers; configure conscientemente o endereço de escuta e, se necessário, autenticação. O projeto não altera configurações do LM Studio.
+### Fila & Recursos
 
-4. Se a autenticação do LM Studio estiver habilitada, coloque o token em `LM_STUDIO_API_KEY`, localmente. O header `Authorization: Bearer` só é enviado quando há token.
-5. Reinicie a API e o worker (`docker compose up -d --force-recreate api worker`). Clique em **Testar gateway de IA**: a verificação consulta somente `/v1/models`, sem enviar documentos nem gerar texto.
-6. Importe um relatório e solicite o resumo. O worker envia mensagens para `/v1/chat/completions` com `response_format=json_schema`, temperatura zero e limite de saída. Respostas truncadas, JSON inválido e fatos sem evidência literal não são aceitos.
+A fila de processamento de IA é distinta da fila de notificações Telegram.
 
-O botão verifica conectividade e presença do modelo na lista, não confirma que ele esteja carregado e não garante que esse modelo consiga gerar o JSON solicitado. Se a geração falhar, o documento mantém o texto original e o painel mostra o erro, permitindo nova tentativa. A camada `backend/app/services/ai.py` centraliza geração e descoberta de modelos, sem dependência do SDK OpenAI.
+| Controle              | Comportamento                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| Pausar IA             | Suspende novos processamentos; não interrompe uma requisição já iniciada                  |
+| Priorizar             | Aumenta a prioridade de uma tarefa; o despacho considera prioridade e antiguidade         |
+| Cancelar              | Impede recriação automática; resultado de execução em curso é descartado                  |
+| Nova tentativa        | Recoloca tarefa falha/cancelada na fila explicitamente                                    |
+| Despachar             | Executa no máximo uma tarefa elegível por chamada; aguarda a conclusão                    |
+| Concorrência de IA    | Teto compartilhado entre executores, padrão 1; não cria novos processos no worker         |
+| Concorrência de APIs  | Limita coletores simultâneos de cotações, eventos, notícias e Tesouro; padrão 2           |
+| Timeout de IA         | Menor prazo entre gateway e fila; fila inicia em 120 s                                    |
+| Intervalo de cotações | Mesma configuração em Fontes e Fila; aplicada sem reiniciar o beat, com resolução de 10 s |
 
-## Desenvolvimento local
+Slots são adquiridos atomicamente no banco. No cancelamento em curso, o slot continua ocupado até a requisição terminar/expirar. A desconexão não garante que o servidor de IA interrompa sua computação. Reservas abandonadas expiram; a de coletor tem prazo de uma hora. Coletores usam slots, mas não geram atualmente um histórico de tarefas `api` na fila; exemplos dessa categoria na demonstração são ilustrativos.
 
-Os padrões, a arquitetura e os comandos do painel estão em [frontend/README.md](frontend/README.md). As instruções para agentes ficam em [AGENTS.md](AGENTS.md) e [frontend/AGENTS.md](frontend/AGENTS.md).
+## Desenvolvimento e demonstração
 
-Requisitos: Python 3.12 ou 3.13, [uv](https://docs.astral.sh/uv/), Node.js 22.13+ e npm.
+Requisitos: Python 3.12 ou 3.13, uv, Node.js 22.13+ e npm.
 
 ```bash
-python3 scripts/setup.py
+python3 scripts/setup.py  # escolha o ambiente local
 cd frontend
 npm ci
 npm run build
@@ -181,9 +214,7 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-No modo local, o `.env.example` usa SQLite em `backend/data/`. Para PostgreSQL, defina `DATABASE_URL=postgresql+psycopg://…`. O Compose substitui a URL automaticamente pela conexão interna do PostgreSQL.
-
-Para a coleta e as notificações locais, execute Redis e, em terminais separados dentro de `backend/`:
+Para tarefas locais, disponibilize Redis em `REDIS_URL` e execute, em terminais separados dentro de `backend/`:
 
 ```bash
 uv run celery -A app.tasks:celery worker --loglevel=INFO --concurrency=1
@@ -191,65 +222,52 @@ uv run celery -A app.tasks:celery beat --loglevel=INFO
 uv run python -m app.bot
 ```
 
-Mantenha **um único beat** e um único processo do bot. No macOS, se o pool prefork do Celery tiver problemas de execução, use `--pool=solo` no desenvolvimento. Para Vite com hot reload, use `npm run dev` em `frontend/` e defina `APP_ORIGIN=http://localhost:5173` antes de iniciar a API. O Vite encaminha `/api` para a API em `127.0.0.1:8000`.
+Mantenha um beat e um bot por instalação. No macOS, o worker pode usar `--pool=solo` no desenvolvimento. Para hot reload, use `npm run dev` no frontend e configure `APP_ORIGIN=http://localhost:5173` no backend. O Redis do Compose não publica porta no host; a execução local precisa de uma instância acessível.
 
-### Demonstração local, sem credenciais reais
-
-Depois de instalar as dependências e compilar o frontend, dentro de `backend/`:
+Demonstração isolada, depois de compilar o painel, dentro de `backend/`:
 
 ```bash
 DATABASE_URL=sqlite:///./data/demo.db uv run alembic upgrade head
 DATABASE_URL=sqlite:///./data/demo.db DEMO_MODE=true OWNER_PASSWORD='' TELEGRAM_BOT_TOKEN='' uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Entre com `demo@example.com` / `demonstracao-local` (preenchidos na interface). Valores, gráficos, proventos e notificações são **ilustrativos** e estão identificados. A demonstração bloqueia o worker e o envio; não use esse banco para sua carteira real. Não exponha a demonstração na internet.
+Entre com `demo@example.com` / `demonstracao-local`. Use um banco exclusivo de demonstração. Exemplos ficam identificados; a demonstração não deve ser exposta na internet.
 
-## Testes e API
+## Verificações e API
 
 ```bash
-cd backend
+cd frontend
+npm ci
+npm run check
+cd ../backend
 uv sync --frozen --python 3.12
 uv run pytest -q
 ```
 
-Testes usam SQLite isolado, relógios controlados quando necessário e mocks HTTP; **não enviam mensagens reais nem consultam provedores externos**. Cobrem autenticação, proteção de origem, CRUD, eventos, rearme/deduplicação, atraso de cotações, silêncio, fila, limites, respostas do Telegram, vínculo de uso único, extração de referências e parsing de dados.
+Os testes usam dados fictícios, SQLite temporário e mocks de rede. Não exigem arquivos pessoais em Downloads nem fazem envio Telegram ou chamadas pagas. O check do frontend verifica formatação, testes, lint e build. Não há medição publicada de cobertura de código.
 
-Documentação OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs). Faça login pelo painel para usar as rotas protegidas no mesmo navegador. As mutações exigem `Origin` igual a `APP_ORIGIN`; scripts de integração precisam enviar esse header e o cookie de sessão. Não há cadastro público, login social ou API key pública.
+Documentação interativa: [OpenAPI](http://localhost:8000/docs). Faça login no mesmo navegador para rotas protegidas. Mutações em `/api/` exigem `Origin` igual a `APP_ORIGIN`; clientes próprios também precisam enviar o cookie de sessão. `/health` verifica API e conexão com o banco; não atesta saúde de fontes, worker, beat ou bot.
 
 ## Operação e recuperação
 
 ```bash
 docker compose logs --tail=100 api worker beat
 docker compose --profile telegram logs --tail=100 bot
+docker compose exec api python -m app.cli reset-password
 bash scripts/backup.sh
 bash scripts/restore.sh backups/arquivo.dump
-docker compose exec api python -m app.cli reset-password
 ```
 
-O reset solicita a nova senha no terminal e encerra todas as sessões. Os scripts de backup são **manuais**; agende o backup diário no seu servidor e teste a restauração em um ambiente separado. Não há agendamento de backup criado nesta entrega. Backups incluem carteira, sessões e vínculo Telegram: armazene-os com acesso restrito e criptografia adequada.
+O reset de senha no terminal revoga todas as sessões. O restore substitui o banco e exige digitar `RESTAURAR`. Se o ambiente usa Docker Desktop com outro socket em `DOCKER_HOST`, execute os scripts com o contexto explícito:
 
-Redis mantém agendamentos e filas de execução; a fila de notificações é persistida no PostgreSQL. Os locks Redis evitam coletas concorrentes. O worker periódico recupera notificações elegíveis sem depender de uma task individual por mensagem.
-
-Uma falha de conexão antes do envio permite retentativa com backoff. Um timeout de leitura pode acontecer **depois** de o Telegram receber a mensagem: a entrega passa a `uncertain` e exige conferência/reenvio manual. O Telegram não oferece uma chave de idempotência em `sendMessage`; a aplicação não promete entrega exatamente uma vez. Mensagens limitadas pelo Telegram são reprogramadas e têm limite de tentativas.
-
-O backend mantém 400 dias de cotações. Eventos e logs não têm expurgo automático nesta versão. Relatórios longos ficam completos no painel; mensagens Telegram são limitadas a 4.000 caracteres.
-
-Para disponibilizar fora do computador, será necessário configurar HTTPS, proxy confiável, origem e cookies seguros. A implantação atual é local. Nenhum recurso de nuvem foi criado, nenhum site foi publicado e nenhuma credencial real foi configurada.
-
-## Estrutura
-
-```text
-backend/app/             API, modelos, bot, tarefas e serviços financeiros
-backend/migrations/      Esquema versionado com Alembic
-backend/tests/           Testes automatizados
-frontend/src/            Painel React responsivo
-scripts/                 Configuração, backup e restauração
-docs/                    Requisitos originais e matriz de implementação
-compose.yaml             API, PostgreSQL, Redis, worker, beat e bot opcional
+```bash
+env -u DOCKER_HOST DOCKER_CONTEXT=desktop-linux bash scripts/backup.sh
+# Somente quando realmente precisar restaurar:
+env -u DOCKER_HOST DOCKER_CONTEXT=desktop-linux bash scripts/restore.sh backups/arquivo.dump
 ```
 
-Fontes primárias usadas na implementação: [brapi: cotações](https://brapi.dev/docs/acoes/cotacao), [brapi: proventos](https://brapi.dev/docs/acoes/dividendos), [brapi: rendimentos de FIIs](https://brapi.dev/docs/fiis/dividendos), [Tesouro Nacional: taxas diárias](https://www.tesourotransparente.gov.br/ckan/dataset/taxas-dos-titulos-ofertados-pelo-tesouro-direto), [Telegram Bot API](https://core.telegram.org/bots/api), [LM Studio: Chat Completions](https://lmstudio.ai/docs/developer/openai-compat/chat-completions), [LM Studio: JSON estruturado](https://lmstudio.ai/docs/developer/openai-compat/structured-output), [LM Studio: autenticação](https://lmstudio.ai/docs/developer/core/authentication) e [Ollama Chat API](https://docs.ollama.com/api/chat).
+Backups são manuais e contêm dados financeiros, configurações e credenciais de integrações. Proteja também `.env` e `.env.bak`. Agendamento, criptografia e ensaio de restauração ficam a cargo da operação. Após restaurar um backup antigo, aplique as migrations antes de retomar o uso.
 
-### Verificação no servidor informado
+Notificações têm tentativas e retentativas com backoff. Timeout de leitura pode ocorrer após o Telegram receber a mensagem: o estado fica `uncertain` e requer conferência antes de reenvio. Não há garantia de entrega exatamente uma vez. A aplicação registra resposta de envio, não confirmação de leitura pelo destinatário.
 
-O servidor `http://localhost:1235/v1` respondeu e o modelo carregado foi identificado como `qwen3.5-9b`. A geração real de um resumo a partir de texto fictício foi concluída: JSON estruturado válido e dois fatos com evidências literais verificadas. O identificador anterior `qwen/qwen3.5-9b` apontava para outro registro não carregado e falhava; os padrões do projeto foram corrigidos para `qwen3.5-9b`. Nenhum documento pessoal ou dado de carteira foi usado nessa verificação.
+Cotações são mantidas por 400 dias. Eventos, documentos e logs não têm expurgo automático. Relatórios completos ficam no painel; mensagens Telegram são limitadas a 4.000 caracteres. A implantação padrão é local; acesso externo exige HTTPS, proxy, origem e cookies configurados para esse ambiente.

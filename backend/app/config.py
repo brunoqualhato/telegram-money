@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     lm_studio_model: str = "qwen3.5-9b"
     lm_studio_api_key: str = ""
     ai_timeout_seconds: int = Field(default=180, ge=5, le=600)
+    ai_allowed_origins: str = ""
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = ""
     demo_mode: bool = False

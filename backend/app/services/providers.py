@@ -16,6 +16,8 @@ from ..schemas import DocumentInput, EventInput
 from .alerts import evaluate_rules, latest_quote
 from .documents import save_document
 from .events import upsert_event
+from .settings import get_app_setting
+from .resources import limited_api
 
 TREASURY_URL = "https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv"
 
@@ -85,8 +87,9 @@ def parse_quote(data):
     )
 
 
-def brapi_client():
-    headers = {"Authorization": f"Bearer {settings().brapi_token}"} if settings().brapi_token else {}
+def brapi_client(token=None):
+    tok = token if token is not None else settings().brapi_token
+    headers = {"Authorization": f"Bearer {tok}"} if tok else {}
     return httpx.Client(base_url="https://brapi.dev", headers=headers, timeout=20)
 
 
@@ -194,13 +197,15 @@ def _collect_quotes_brapi(db, client):
     return count
 
 
+@limited_api
 def collect_quotes(db, client=None):
     if client is not None:
         return _collect_quotes_brapi(db, client)
 
-    if settings().brapi_token:
+    brapi_token = get_app_setting("brapi_token", "", db=db)
+    if brapi_token:
         try:
-            with brapi_client() as c:
+            with brapi_client(token=brapi_token) as c:
                 res = _collect_quotes_brapi(db, c)
                 if res > 0:
                     return res
@@ -300,6 +305,7 @@ def fetch_open_dividends(ticker: str, asset_class: str = "acao", client: httpx.C
             c.close()
 
 
+@limited_api
 def collect_dividends(db, client=None):
     labels = {
         "DIVIDENDO": "dividendo",
@@ -314,9 +320,10 @@ def collect_dividends(db, client=None):
     count = 0
     assets = db.scalars(select(Asset).where(Asset.asset_class.in_(["acao", "fii", "bdr", "etf"]))).all()
 
+    brapi_token = get_app_setting("brapi_token", "", db=db)
     # Se cliente mock foi fornecido em testes ou se há token brapi configurado
-    if client is not None or (settings().brapi_token and client is None):
-        with client if client is not None else brapi_client() as c:
+    if client is not None or (brapi_token and client is None):
+        with client if client is not None else brapi_client(token=brapi_token) as c:
             for asset in assets:
                 try:
                     endpoint = (
@@ -442,6 +449,7 @@ def fetch_open_news(ticker: str, limit: int = 5, client: httpx.Client | None = N
             c.close()
 
 
+@limited_api
 def collect_news(db, client=None):
     own = client is None
     c = client or open_http_client()
@@ -507,6 +515,7 @@ def parse_treasury_csv(text):
     return rows
 
 
+@limited_api
 def collect_treasury(db):
     try:
         chunks, size = [], 0

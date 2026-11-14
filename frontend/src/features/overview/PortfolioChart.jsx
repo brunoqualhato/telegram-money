@@ -1,121 +1,105 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { TrendingUp } from "lucide-react";
-import Badge from "../../components/ui/Badge.jsx";
 import Empty from "../../components/ui/Empty.jsx";
+import LineChart from "../../components/ui/LineChart.jsx";
 import { money } from "../../lib/formatters.js";
-import { date } from "../../lib/formatters.js";
-import { api } from "../../services/api.js";
+import useChartHistory from "./useChartHistory.js";
+
+function QuoteHistory({ state, asset }) {
+  if (state.error)
+    return (
+      <p className="chart-message error-box" role="alert">
+        Não foi possível carregar as cotações. {state.error}
+      </p>
+    );
+  if (state.loading)
+    return (
+      <div className="chart-loading" role="status">
+        <TrendingUp size={28} />
+        <span>Carregando cotações…</span>
+      </div>
+    );
+  const rows = state.rows
+    .filter((quote) => quote.currency === asset.quote.currency)
+    .map((quote) => ({ date: quote.quoted_at, value: Number(quote.price) }))
+    .filter((quote) => Number.isFinite(quote.value))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (rows.length < 2)
+    return (
+      <Empty icon={TrendingUp} title="Cada atualização conta">
+        O gráfico aparece após duas cotações coletadas para o ativo.
+      </Empty>
+    );
+  const currency = asset.quote.currency;
+  const formatValue =
+    currency === "BRL"
+      ? money
+      : (value) =>
+          `${currency} ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  return (
+    <>
+      <div className="history-value">
+        <strong>{formatValue(rows.at(-1).value)}</strong>
+        <span>
+          Preço por unidade <i /> {rows.length} observações
+        </span>
+      </div>
+      <LineChart
+        rows={rows}
+        label={`Histórico de ${asset.ticker}`}
+        formatValue={formatValue}
+        reference={
+          asset.average_price > 0 && currency === "BRL"
+            ? asset.average_price
+            : undefined
+        }
+        referenceLabel="Preço médio informado"
+      />
+    </>
+  );
+}
 
 export default function PortfolioChart({ assets }) {
-  const [selected, setSelected] = useState(""),
-    [history, setHistory] = useState([]);
-  const assetId = selected || assets[0]?.id;
-  useEffect(() => {
-    let active = true;
-    if (assetId)
-      api(`/assets/${assetId}/history`)
-        .then((rows) => {
-          if (active) setHistory(rows.reverse());
-        })
-        .catch(() => {
-          if (active) setHistory([]);
-        });
-    return () => {
-      active = false;
-    };
-  }, [assetId, assets.length]);
-  const prices = history.map((q) => Number(q.price)),
-    min = Math.min(...prices),
-    max = Math.max(...prices),
-    spread = max - min || 1;
-  const points = prices
-    .map(
-      (p, i) =>
-        `${20 + (i / Math.max(1, prices.length - 1)) * 660},${160 - ((p - min) / spread) * 125}`,
-    )
-    .join(" ");
-  const selectedAsset = assets.find((a) => a.id === Number(assetId));
+  const [selected, setSelected] = useState("");
+  const quoted = assets.filter((asset) => asset.quote);
+  const asset =
+    quoted.find((item) => item.id === Number(selected)) || quoted[0];
+  const state = useChartHistory(
+    asset ? `/assets/${asset.id}/history` : null,
+    assets,
+  );
   return (
-    <div className="panel chart-panel">
+    <section className="panel asset-history">
       <div className="panel-heading">
         <div>
-          <h3>Um olhar para o movimento</h3>
-          <p>Histórico coletado · preço por unidade</p>
+          <h3>Uma posição, mais de perto</h3>
+          <p>Histórico de cotação por ativo</p>
         </div>
-        {assets.length > 0 && (
+        {asset && (
           <select
             aria-label="Ativo do gráfico"
-            value={assetId}
+            value={asset.id}
             onChange={(e) => setSelected(e.target.value)}
           >
-            {assets.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.ticker}
+            {quoted.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.ticker}
               </option>
             ))}
           </select>
         )}
       </div>
-      {history.length > 1 ? (
-        <>
-          <div className="chart-number">
-            {chartPrice(selectedAsset, prices.at(-1))}
-            <Badge tone="green">{history.length} observações</Badge>
-          </div>
-          <svg
-            className="price-chart"
-            viewBox="0 0 700 190"
-            role="img"
-            aria-label={`Histórico de cotação de ${selectedAsset?.ticker}`}
-          >
-            <defs>
-              <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#6a9d65" stopOpacity=".25" />
-                <stop offset="100%" stopColor="#6a9d65" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {[40, 100, 160].map((y) => (
-              <line
-                key={y}
-                x1="20"
-                x2="680"
-                y1={y}
-                y2={y}
-                stroke="#e9ece5"
-                strokeDasharray="4 5"
-              />
-            ))}
-            <polygon points={`20,180 ${points} 680,180`} fill="url(#fill)" />
-            <polyline
-              points={points}
-              fill="none"
-              stroke="#46784b"
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-            />
-            <circle
-              cx="680"
-              cy={160 - ((prices.at(-1) - min) / spread) * 125}
-              r="5"
-              fill="#46784b"
-              stroke="white"
-              strokeWidth="3"
-            />
-          </svg>
-          <div className="chart-dates">
-            <span>{date(history[0].quoted_at)}</span>
-            <span>{date(history.at(-1).quoted_at)}</span>
-          </div>
-        </>
+      {asset ? (
+        <QuoteHistory key={asset.id} state={state} asset={asset} />
       ) : (
-        <Empty icon={TrendingUp} title="Cada atualização conta">
-          O gráfico aparece após duas cotações coletadas para o ativo.
+        <Empty icon={TrendingUp} title="Aguardando a primeira cotação">
+          Seu histórico por ativo aparecerá aqui.
         </Empty>
       )}
-    </div>
+      <p className="panel-note">
+        Preços nas datas coletadas. Referência de custo apenas para posições em
+        BRL.
+      </p>
+    </section>
   );
-}
-
-function chartPrice(asset, price) {
-  return asset?.quote?.currency === "BRL" ? money(price) : price?.toFixed(2);
 }

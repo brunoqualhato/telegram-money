@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -9,7 +9,7 @@ from ..crud import audit, rows
 from ..db import get_db, utcnow
 from ..models import AlertRule, Asset, Notification, ProviderState, Quote
 from ..schemas import AssetInput
-from ..services.portfolio import parse_b3_position, portfolio_snapshot
+from ..services.portfolio import parse_b3_position, portfolio_history, portfolio_snapshot
 
 router = APIRouter(tags=["portfolio"])
 
@@ -78,6 +78,7 @@ def import_b3(
             "Nenhuma posição de Ação, FII, ETF ou BDR encontrada. Certifique-se de enviar a planilha de posição da Área do Investidor B3 (.xlsx ou .csv).",
         )
     existing = {a.ticker: a for a in db.scalars(select(Asset)).all()}
+    items = [item for item in items if item["quantity"] > 0 or item["ticker"] in existing]
     new_items = [it for it in items if it["ticker"] not in existing]
     if len(existing) + len(new_items) > 50:
         raise HTTPException(
@@ -94,7 +95,7 @@ def import_b3(
                 asset.quantity = it["quantity"]
                 if it["name"] and not asset.name:
                     asset.name = it["name"]
-                if update_average_price or asset.average_price == 0:
+                if it.get("average_price_known", True) and (update_average_price or asset.average_price == 0):
                     asset.average_price = it["average_price"]
                 updated_count += 1
         else:
@@ -156,3 +157,8 @@ def quote_history(asset_id: int, owner=Depends(current_owner), db=Depends(get_db
             select(Quote).where(Quote.asset_id == asset_id).order_by(Quote.quoted_at.desc()).limit(120)
         ).all()
     )
+
+
+@router.get("/api/portfolio/history")
+def get_portfolio_history(days: int = Query(30, ge=1, le=400), owner=Depends(current_owner), db=Depends(get_db)):
+    return jsonable_encoder(portfolio_history(db, days=days))

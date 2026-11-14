@@ -1,7 +1,8 @@
 import Badge from "../../components/ui/Badge.jsx";
 import { date } from "../../lib/formatters.js";
+import MarketSourcesForm from "./MarketSourcesForm.jsx";
 
-export default function SourcesSettings({ integrations }) {
+export default function SourcesSettings({ integrations = {}, reload, toast }) {
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -30,6 +31,11 @@ export default function SourcesSettings({ integrations }) {
             Os resultados de coleta aparecerão após o primeiro ciclo do worker.
           </p>
         )}
+        <MarketSourcesForm
+          integrations={integrations}
+          reload={reload}
+          toast={toast}
+        />
       </div>
     </section>
   );

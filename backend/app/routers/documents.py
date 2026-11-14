@@ -7,6 +7,7 @@ from ..db import get_db
 from ..models import Document
 from ..schemas import DocumentInput
 from ..services.documents import save_document
+from ..services.settings import get_app_setting
 
 router = APIRouter(tags=["documents"])
 
@@ -69,12 +70,38 @@ def retry_summary(document_id: int, owner=Depends(current_owner), db=Depends(get
     document = db.get(Document, document_id)
     if not document:
         raise HTTPException(404, "Documento não encontrado")
-    if not settings().ai_model:
-        model_var = "LM_STUDIO_MODEL" if settings().ai_provider == "lmstudio" else "OLLAMA_MODEL"
+    ai_provider = get_app_setting("ai_provider", settings().ai_provider, db=db)
+    ai_model = (
+        get_app_setting("lm_studio_model", settings().lm_studio_model, db=db)
+        if ai_provider == "lmstudio"
+        else get_app_setting("ollama_model", settings().ollama_model, db=db)
+    )
+    if not ai_model:
+        model_var = "LM_STUDIO_MODEL" if ai_provider == "lmstudio" else "OLLAMA_MODEL"
         raise HTTPException(503, f"Configure {model_var} para gerar resumos com IA local")
     if document.status == "ready":
         return {"ok": True}
     document.status, document.error = "pending", None
+    from sqlalchemy import select
+    from ..models import ProcessingJob
+    from ..services.queue import enqueue_job, retry_job
+
+    job = db.scalar(
+        select(ProcessingJob).where(
+            ProcessingJob.job_type == "ai_document_summary",
+            ProcessingJob.target_id == str(document.id),
+        ).order_by(ProcessingJob.id.desc()).limit(1)
+    )
+    if job and job.status != "completed":
+        retry_job(db, job.id)
+    else:
+        enqueue_job(
+            db,
+            category="ai",
+            job_type="ai_document_summary",
+            title=f"Resumo IA · {document.ticker} - {document.title[:45]}",
+            target_id=str(document.id),
+        )
     db.commit()
     return {"ok": True}
 

@@ -1,101 +1,93 @@
-import {
-  ArrowUpRight,
-  ArrowRight,
-  Clock3,
-  FileText,
-  Send,
-  ShieldCheck,
-  Layers,
-} from "lucide-react";
-import Badge from "../../components/ui/Badge.jsx";
-import { CLASSES } from "../../lib/constants.js";
+import { ArrowRight, FileText, Send, ShieldCheck } from "lucide-react";
+import { percentage } from "../../lib/formatters.js";
+
+function CoverageRow({ label, count, total }) {
+  const coverage = total > 0 ? (count / total) * 100 : 0;
+  return (
+    <div className="coverage-row">
+      <div>
+        <span>{label}</span>
+        <strong>
+          {count} de {total}
+        </strong>
+      </div>
+      <div className="weight-track" aria-hidden="true">
+        <span style={{ width: `${coverage}%` }} />
+      </div>
+      <small>
+        {total > 0
+          ? `${percentage(coverage)} de cobertura`
+          : "Adicione posições para começar"}
+      </small>
+    </div>
+  );
+}
 
 export default function OverviewAside({
-  data,
-  classes,
+  metrics,
   me,
   navigate,
   connect,
   report,
 }) {
   return (
-    <aside className="dashboard-aside">
-      <div className="telegram-card">
-        <span className="telegram-icon">
-          <Send size={25} />
-        </span>
-        <Badge tone="light">SEU RADAR NO TELEGRAM</Badge>
-        <h2>
-          O mercado se move.
-          <br />
-          Você fica sabendo.
-        </h2>
-        <p>
-          {me.telegram_connected
-            ? "Seu Telegram está conectado. Os alertas seguem suas preferências de envio."
-            : "Conecte seu Telegram para receber os alertas que realmente importam para você."}
+    <aside className="dashboard-aside portfolio-aside">
+      <section className="panel data-coverage">
+        <div className="panel-heading">
+          <div>
+            <h3>Dados da carteira</h3>
+            <p>O que entra nos seus indicadores</p>
+          </div>
+          <ShieldCheck size={19} />
+        </div>
+        <CoverageRow
+          label="Cotações em BRL"
+          count={metrics.pricedCount}
+          total={metrics.heldCount}
+        />
+        <CoverageRow
+          label="Custo nas posições cotadas"
+          count={metrics.costCount}
+          total={metrics.pricedCount}
+        />
+        <p className="panel-note">
+          Sem cotação, a posição não entra no patrimônio. Sem preço médio, não
+          entra no resultado.
         </p>
         <button
+          type="button"
+          className="text-button coverage-action"
+          onClick={() => navigate("assets")}
+        >
+          Revisar meus ativos <ArrowRight size={15} />
+        </button>
+      </section>
+      <div className="portfolio-telegram">
+        <Send size={22} />
+        <div>
+          <h3>Seu radar no Telegram</h3>
+          <p>
+            {me.telegram_connected
+              ? "Conexão ativa. Alertas conforme suas preferências."
+              : "Receba os sinais da sua carteira onde você estiver."}
+          </p>
+        </div>
+        <button
+          type="button"
           onClick={me.telegram_connected ? () => navigate("settings") : connect}
         >
-          {me.telegram_connected
-            ? "Gerenciar conexão"
-            : "Conectar meu Telegram"}
-          <ArrowUpRight size={17} />
+          {me.telegram_connected ? "Gerenciar conexão" : "Conectar Telegram"}
+          <ArrowRight size={15} />
         </button>
-        <small>
-          <ShieldCheck size={13} /> Conexão por código único e temporário
-        </small>
       </div>
-      <section className="panel allocation">
-        <div className="panel-heading">
-          <h3>Sua distribuição</h3>
-          <Layers size={17} />
-        </div>
-        {Object.keys(classes).length ? (
-          <>
-            <div className="allocation-bar">
-              {Object.entries(classes).map(([key, value], i) => (
-                <span
-                  key={key}
-                  className={`allocation-color color-${i}`}
-                  style={{ width: `${(value / data.total) * 100}%` }}
-                />
-              ))}
-            </div>
-            {Object.entries(classes).map(([key, value], i) => (
-              <div className="allocation-row" key={key}>
-                <span>
-                  <i className={`allocation-color color-${i}`} />
-                  {CLASSES[key]}
-                </span>
-                <strong>{((value / data.total) * 100).toFixed(1)}%</strong>
-              </div>
-            ))}
-            <small>Posições avaliadas em BRL</small>
-          </>
-        ) : (
-          <p className="muted">
-            Informe quantidades para visualizar a distribuição da sua carteira.
-          </p>
-        )}
-      </section>
-      <div className="insight-note">
+      <button type="button" className="portfolio-report" onClick={report}>
+        <FileText size={19} />
         <span>
-          <FileText size={19} />
+          <strong>Resumo da carteira</strong>
+          <small>Gere uma fotografia das suas posições</small>
         </span>
-        <h3>Um resumo. Mais clareza.</h3>
-        <p>
-          Gere uma fotografia da carteira, com cotações e próximos pagamentos.
-        </p>
-        <button className="text-button" onClick={report}>
-          Gerar meu resumo <ArrowRight size={15} />
-        </button>
-      </div>
-      <p className="data-footnote">
-        <Clock3 size={15} /> Dados sujeitos a atraso. Consulte o horário e a
-        fonte de cada cotação.
-      </p>
+        <ArrowRight size={16} />
+      </button>
     </aside>
   );
 }

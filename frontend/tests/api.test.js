@@ -62,3 +62,16 @@ test("resposta sem JSON mantém erro genérico e status de autenticação", asyn
     status: 401,
   });
 });
+
+test("testes de integração com ok falso mostram o erro mesmo com HTTP 200", async (t) => {
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json({ ok: false, error: "Gateway indisponível", models: [] }),
+  );
+  await assert.rejects(
+    api("/integrations/test-ai", {
+      method: "POST",
+      body: { url: "http://localhost:1235/v1" },
+    }),
+    { message: "Gateway indisponível", status: 200 },
+  );
+});

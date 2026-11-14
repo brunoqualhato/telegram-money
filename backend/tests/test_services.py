@@ -200,3 +200,54 @@ def test_open_news_collection(db):
     assert doc.kind == "noticia"
     assert "Petrobras" in doc.title
 
+
+def test_parse_b3_movimentacao_sample():
+    from b3_fixtures import movements_xlsx
+    from app.services.portfolio import parse_b3_position
+
+    items = parse_b3_position(movements_xlsx(), "movimentacao.xlsx")
+    assert len(items) == 1
+    assert items[0]["ticker"] == "TEST3"
+    assert items[0]["quantity"] == Decimal("15")
+    assert items[0]["average_price"] == Decimal("15")
+    assert items[0]["asset_class"] == "acao"
+
+
+def test_parse_b3_movimentacao_csv_calculations():
+    from app.services.portfolio import parse_b3_position
+
+    # 1. Compras múltiplas com cálculo do preço médio ponderado
+    # 2. Venda parcial preservando preço médio unitário das cotas restantes
+    # 3. Transferência interna
+    # 4. Desdobro (split) dividindo preço médio proporcionalmente
+    csv_data = (
+        "Entrada/Saída;Data;Movimentação;Produto;Instituição;Quantidade;Preço unitário;Valor da Operação\n"
+        "Credito;01/10/2026;Transferência - Liquidação;VALE3 - VALE S/A;CORRETORA;10;60.00;600.00\n"
+        "Credito;05/10/2026;Transferência - Liquidação;VALE3 - VALE S/A;CORRETORA;10;70.00;700.00\n"
+        "Debito;10/10/2026;Transferência - Liquidação;VALE3 - VALE S/A;CORRETORA;5;80.00;400.00\n"
+        "Credito;15/10/2026;Desdobro;VALE3 - VALE S/A;CORRETORA;15;0.00;0.00\n"
+        "Credito;01/10/2026;Transferência - Liquidação;HGLG11 - CSHG LOGÍSTICA FII;CORRETORA;5;160.00;800.00\n"
+        "Credito;02/10/2026;Transferência - Liquidação;AAPL34 - APPLE INC BDR;CORRETORA;2;50.00;100.00\n"
+    )
+    items = parse_b3_position(csv_data.encode("utf-8"), "mov.csv")
+    lookup = {it["ticker"]: it for it in items}
+
+    # VALE3:
+    # 10 @ 60 = 600
+    # + 10 @ 70 = 700 -> 20 @ 65
+    # - 5 @ 80 -> 15 restantes @ 65
+    # Desdobro +15 -> 30 cotas @ 32.50
+    vale = lookup["VALE3"]
+    assert vale["quantity"] == Decimal("30")
+    assert round(vale["average_price"], 2) == Decimal("32.50")
+    assert vale["asset_class"] == "acao"
+
+    hglg = lookup["HGLG11"]
+    assert hglg["quantity"] == Decimal("5")
+    assert round(hglg["average_price"], 2) == Decimal("160.00")
+    assert hglg["asset_class"] == "fii"
+
+    aapl = lookup["AAPL34"]
+    assert aapl["quantity"] == Decimal("2")
+    assert round(aapl["average_price"], 2) == Decimal("50.00")
+    assert aapl["asset_class"] == "bdr"

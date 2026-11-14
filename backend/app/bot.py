@@ -10,6 +10,7 @@ from .db import SessionLocal, utcnow
 from .models import AlertRule, Asset, AuditLog, CorporateAction, Owner, TelegramLink, TreasuryRate
 from .services.alerts import latest_quote
 from .services.reports import build_report
+from .services.settings import get_app_setting
 
 dispatcher = Dispatcher()
 MENU = InlineKeyboardMarkup(
@@ -146,9 +147,11 @@ async def commands(message: Message):
 
 
 async def main():
-    if not settings().telegram_bot_token or settings().demo_mode:
-        raise SystemExit("Configure TELEGRAM_BOT_TOKEN e desative DEMO_MODE para iniciar o bot.")
-    bot = Bot(settings().telegram_bot_token)
+    with SessionLocal() as db:
+        token = get_app_setting("telegram_bot_token", settings().telegram_bot_token, db=db)
+    if not token or settings().demo_mode:
+        raise SystemExit("Configure o token do Telegram no painel e desative DEMO_MODE para iniciar o bot.")
+    bot = Bot(token)
     # Long polling não precisa de URL pública; não removemos webhooks existentes silenciosamente.
     info = await bot.get_webhook_info()
     if info.url:

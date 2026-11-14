@@ -2,13 +2,16 @@ import { RefreshCw, ShieldCheck } from "lucide-react";
 import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
 import ErrorBox from "../../components/ui/ErrorBox.jsx";
+import AIGatewayForm from "./AIGatewayForm.jsx";
 
 export default function IntegrationsSettings({
-  integrations,
+  integrations = {},
   checkingAI,
   checkAI,
   aiCheck,
   error,
+  reload,
+  toast,
 }) {
   return (
     <section className="panel">
@@ -42,8 +45,10 @@ export default function IntegrationsSettings({
         </p>
         <p className="form-note">
           Modelo:{" "}
-          <strong>{integrations.ai_model || "não definido no .env"}</strong>. O
-          teste consulta apenas a lista de modelos; não envia documentos.
+          <strong>
+            {integrations.ai_model || "não definido nas configurações"}
+          </strong>
+          . O teste consulta apenas a lista de modelos; não envia documentos.
         </p>
         <Button
           secondary
@@ -64,7 +69,7 @@ export default function IntegrationsSettings({
               </strong>
               <p>
                 Modelos:{" "}
-                {aiCheck.models.length
+                {aiCheck.models?.length
                   ? aiCheck.models.join(", ")
                   : "nenhum modelo disponível"}
               </p>
@@ -72,6 +77,11 @@ export default function IntegrationsSettings({
           </div>
         )}
         <ErrorBox error={error} />
+        <AIGatewayForm
+          integrations={integrations}
+          reload={reload}
+          toast={toast}
+        />
       </div>
     </section>
   );

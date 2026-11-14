@@ -198,6 +198,14 @@ strong {
   background: #faeeea;
   color: #ac594b;
 }
+.badge.blue {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+.badge.yellow {
+  background: #fef7e0;
+  color: #b06000;
+}
 .badge.light {
   background: #ffffff12;
   color: #d6e7cc;
@@ -1652,6 +1660,111 @@ dialog::backdrop {
 }
 .login-form .notice {
   font-size: 10px;
+}
+.login-form > div.wizard-box {
+  width: 440px;
+  max-width: 100%;
+}
+.wizard-stepper {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.wizard-step-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 16px;
+  background: #f4f6f0;
+  border: 1px solid #e2e6d9;
+  font-size: 11px;
+  color: #7c886e;
+}
+.wizard-step-pill span {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e6d9;
+  color: #365231;
+  font-weight: 600;
+  font-size: 10px;
+}
+.wizard-step-pill.active {
+  background: #eaf2e3;
+  border-color: #486a42;
+  color: #486a42;
+  font-weight: 600;
+}
+.wizard-step-pill.active span {
+  background: #486a42;
+  color: #fff;
+}
+.wizard-step-pill.done {
+  border-color: #c8dcbd;
+  color: #486a42;
+}
+.wizard-step-pill.done span {
+  background: #c8dcbd;
+  color: #486a42;
+}
+.wizard-step {
+  margin-bottom: 16px;
+}
+.wizard-nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.wizard-nav .button {
+  flex: 1;
+}
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid #e2e6d9;
+  background: #ffffff;
+  font-size: 13px;
+  color: #7c886e;
+  flex-wrap: wrap;
+}
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pagination-size-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #7c886e;
+}
+.pagination-size-select {
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e6d9;
+  background: #fff;
+  font-size: 12px;
+  color: #365231;
+}
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pagination-page-indicator {
+  font-weight: 500;
+  color: #365231;
+  padding: 0 4px;
 }
 .floating-error {
   position: fixed;

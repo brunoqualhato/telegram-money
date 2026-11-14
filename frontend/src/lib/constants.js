@@ -1,6 +1,7 @@
 import {
   Bell,
   Clock3,
+  Cpu,
   FileText,
   LayoutDashboard,
   Sparkles,
@@ -35,6 +36,9 @@ export const STATUS = {
   sending: "Enviando",
   demo: "Exemplo",
   expired: "Expirado",
+  running: "Processando",
+  completed: "Concluído",
+  cancelled: "Cancelado",
 };
 export const NAV = [
   ["overview", "Visão geral", LayoutDashboard],
@@ -42,6 +46,7 @@ export const NAV = [
   ["alerts", "Meus alertas", Bell],
   ["events", "Proventos", Landmark],
   ["documents", "Documentos e IA", Sparkles],
+  ["queue", "Fila & Recursos", Cpu],
   ["reports", "Relatórios", FileText],
   ["history", "Histórico de alertas", Clock3],
 ];

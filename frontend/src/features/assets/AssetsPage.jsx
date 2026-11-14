@@ -1,6 +1,8 @@
 import { Plus, Search, Upload } from "lucide-react";
 import Button from "../../components/ui/Button.jsx";
+import Pagination from "../../components/ui/Pagination.jsx";
 import AssetTable from "./AssetTable.jsx";
+import { usePagination } from "../../lib/usePagination.js";
 import { CLASSES } from "../../lib/constants.js";
 
 export default function AssetsPage({
@@ -13,6 +15,8 @@ export default function AssetsPage({
   setModal,
   removeAsset,
 }) {
+  const pagination = usePagination(filteredAssets, 10);
+
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -59,9 +63,16 @@ export default function AssetsPage({
         <small>{filteredAssets.length} ativos na lista</small>
       </div>
       <AssetTable
-        assets={filteredAssets}
+        assets={pagination.pagedItems}
         edit={(asset) => setModal({ type: "asset", asset })}
         remove={removeAsset}
+      />
+      <Pagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
       />
     </section>
   );

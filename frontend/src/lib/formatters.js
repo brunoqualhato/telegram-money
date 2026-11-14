@@ -3,6 +3,8 @@ const BRL = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 export const money = (value) => BRL.format(Number(value || 0));
+export const percentage = (value) =>
+  `${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 export const pct = (value) =>
   `${Number(value) >= 0 ? "+" : ""}${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}%`;
 export const date = (value) =>

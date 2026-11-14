@@ -19,6 +19,9 @@ const { default: AssetFields } = await server.ssrLoadModule(
 const { default: DocumentSummary } = await server.ssrLoadModule(
   "/src/features/documents/DocumentSummary.jsx",
 );
+const { default: B3ImportModal } = await server.ssrLoadModule(
+  "/src/features/assets/B3ImportModal.jsx",
+);
 const noop = () => {};
 const asset = {
   id: 1,
@@ -75,6 +78,7 @@ for (const [page, expected] of Object.entries({
   history: "Histórico de notificações",
   treasury: "Títulos públicos",
   settings: "Controle o ritmo",
+  queue: "Fila de Tarefas",
 })) {
   test(`tela ${page} renderiza com os componentes extraídos`, () => {
     const html = renderToStaticMarkup(
@@ -91,6 +95,72 @@ test("campos preservam ticker editável na criação e bloqueado na edição", (
   const edition = renderToStaticMarkup(createElement(AssetFields, { asset }));
   assert.ok(edition.includes('readOnly=""'));
   assert.ok(edition.includes('value="PETR4"'));
+});
+
+test("dashboard apresenta alocação, concentração, impacto diário e cobertura", () => {
+  const html = renderToStaticMarkup(
+    createElement(PageContent, { ...props, page: "overview" }),
+  );
+  for (const label of [
+    "Alocação da carteira",
+    "Concentração por ativo",
+    "O que moveu sua carteira",
+    "Dados da carteira",
+    "Resultado com custo",
+  ])
+    assert.ok(html.includes(label));
+  assert.ok(!html.includes("NaN"));
+});
+
+test("dashboard sem posições mantém estados vazios e ações de cadastro", () => {
+  const html = renderToStaticMarkup(
+    createElement(PageContent, {
+      ...props,
+      page: "overview",
+      data: { ...data, assets: [] },
+    }),
+  );
+  assert.ok(html.includes("Adicionar primeiro ativo"));
+  assert.ok(html.includes("Sua distribuição começa aqui"));
+  assert.ok(!html.includes("NaN"));
+  assert.ok(!html.includes("Infinity"));
+});
+
+test("configurações aguardam os dados antes de montar os formulários", () => {
+  const html = renderToStaticMarkup(
+    createElement(PageContent, {
+      ...props,
+      page: "settings",
+      integrations: null,
+    }),
+  );
+  assert.ok(html.includes("Carregando configurações"));
+  assert.ok(!html.includes("Salvar Configuração"));
+  assert.ok(!html.includes('type="password"'));
+});
+
+test("configurações iniciam com o provedor e modelo carregados", () => {
+  const html = renderToStaticMarkup(
+    createElement(PageContent, {
+      ...props,
+      page: "settings",
+      integrations: {
+        ai_provider: "ollama",
+        ollama_model: "loaded-test-model",
+      },
+    }),
+  );
+  assert.ok(html.includes('value="ollama" selected=""'));
+  assert.ok(html.includes("loaded-test-model"));
+});
+
+test("importação não habilita sobrescrita de custo por padrão", () => {
+  const html = renderToStaticMarkup(
+    createElement(B3ImportModal, { close: noop, done: noop }),
+  );
+  assert.ok(html.includes('name="update_average_price"'));
+  assert.ok(!html.includes('checked=""'));
+  assert.ok(html.includes("preço de fechamento"));
 });
 
 test("resumo preserva fatos, evidências, riscos e informações ausentes", () => {

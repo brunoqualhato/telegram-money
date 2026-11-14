@@ -68,7 +68,12 @@ export default function SettingsPage({
     error,
     save,
     busy,
+    reload,
+    toast,
   };
+  if (!integrations) {
+    return <p role="status">Carregando configurações…</p>;
+  }
   return (
     <div className="settings-grid">
       <TelegramSettings {...props} />
